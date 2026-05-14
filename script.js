@@ -196,8 +196,6 @@ const uploadStatusText = document.getElementById('upload-status-text');
 const uploadProgressTitle = document.getElementById('upload-progress-title');
 const uploadProgressPercent = document.getElementById('upload-progress-percent');
 const uploadDebugText = document.getElementById('upload-debug-text');
-const startupDebugBanner = document.getElementById('startup-debug-banner');
-const startupDebugList = document.getElementById('startup-debug-list');
 
 // Mobile sidebar toggle
 const sidebar = document.getElementById('sidebar');
@@ -478,52 +476,6 @@ function updateUploadProgress(percent, message) {
 function setUploadState(uploading) {
     isUploading = uploading;
     uploadInput.disabled = uploading;
-}
-
-function addStartupDebug(message) {
-    if (!startupDebugBanner || !startupDebugList) return;
-
-    startupDebugBanner.hidden = false;
-
-    const item = document.createElement('div');
-    item.className = 'startup-debug-item';
-    item.textContent = message;
-    startupDebugList.appendChild(item);
-}
-
-function runStartupDiagnostics() {
-    const stylesheetLink = document.querySelector('link[href="styles.css"]');
-    const scriptTag = document.querySelector('script[src="script.js"]');
-    const coverImages = document.querySelectorAll('img[src="assets/default_cover.png"]');
-
-    if (!stylesheetLink) {
-        addStartupDebug('styles.css link tag was not found in index.html.');
-    }
-
-    if (!scriptTag) {
-        addStartupDebug('script.js script tag was not found in index.html.');
-    }
-
-    coverImages.forEach((image) => {
-        image.addEventListener('error', () => {
-            addStartupDebug(`Image failed to load: ${image.getAttribute('src')}. Check that /assets/default_cover.png exists on the server.`);
-        }, { once: true });
-    });
-
-    window.addEventListener('error', (event) => {
-        const filename = event.filename ? ` in ${event.filename}` : '';
-        addStartupDebug(`JavaScript error${filename}: ${event.message}`);
-    });
-
-    window.addEventListener('unhandledrejection', (event) => {
-        const reason = event.reason?.message || String(event.reason);
-        addStartupDebug(`Unhandled promise rejection: ${reason}`);
-    });
-
-    const navTiming = performance.getEntriesByType?.('navigation')?.[0];
-    if (navTiming && navTiming.type === 'reload') {
-        addStartupDebug('Page reloaded successfully. If the UI still looks broken, check browser console/network for blocked CDN files.');
-    }
 }
 
 function showUploadDebug(details) {
@@ -827,7 +779,6 @@ document.addEventListener('drop', (e) => {
 });
 
 // Initialize
-runStartupDiagnostics();
 renderPlaylist();
 loadSong(currentSongIndex);
 updateVolumeIcon();
