@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mellisai - Premium Music Player</title>
+    <!-- Use Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Cloudinary Upload Widget -->
+    <script src="https://upload-widget.cloudinary.com/latest/CloudinaryUploadWidget.js"></script>
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div id="startup-debug-banner" class="startup-debug-banner" hidden>
+        <strong>Startup diagnostics</strong>
+        <div id="startup-debug-list" class="startup-debug-list"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fa-solid fa-music"></i> Mellisai</h2>
+                <button id="close-sidebar-btn" class="mobile-only icon-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active"><i class="fa-solid fa-house"></i> Home</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-book"></i> Your Library</a>
+                <a href="#" class="nav-item"><i class="fa-solid fa-heart"></i> Liked Songs</a>
+            </nav>
+
+            <div class="sidebar-actions">
+                <label for="upload-song" class="upload-btn">
+                    <i class="fa-solid fa-plus"></i> Upload Song
+                </label>
+                <input type="file" id="upload-song" accept="audio/*" style="display: none;">
+                
+                <!-- Cloudinary Settings Button -->
+                <button id="cloudinary-settings-btn" class="upload-btn" style="margin-top: 12px; border: 1px solid var(--border); padding: 8px 12px; border-radius: 4px; background: transparent;">
+                    <i class="fa-solid fa-gear"></i> Cloudinary Settings
+                </button>
+            </div>
+            
+            <div class="playlists">
+                <p class="section-title">YOUR PLAYLISTS</p>
+                <a href="#" class="playlist-item">Tamil Melodies</a>
+                <a href="#" class="playlist-item">Ilaiyaraaja Hits</a>
+                <a href="#" class="playlist-item">SPB Classics</a>
+                <a href="#" class="playlist-item">90s Romantic</a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <button id="menu-btn" class="mobile-only icon-btn"><i class="fa-solid fa-bars"></i></button>
+                <div class="navigation-arrows">
+                    <button class="icon-btn"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button class="icon-btn"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                <div class="user-profile">
+                    <img src="https://ui-avatars.com/api/?name=User&background=random" alt="User Profile">
+                </div>
+            </header>
+
+            <div class="content-body">
+                <div class="playlist-header">
+                    <div class="playlist-cover">
+                        <img src="assets/default_cover.png" alt="Playlist Cover">
+                    </div>
+                    <div class="playlist-info">
+                        <span>Playlist</span>
+                        <h1>Mellisai Essentials</h1>
+                        <p>A handpicked collection of timeless Tamil melodies. Updated dynamically.</p>
+                        <div class="playlist-stats">
+                            <span id="total-songs">0 songs</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <button class="play-all-btn" id="play-all-btn"><i class="fa-solid fa-play"></i></button>
+                    <button class="icon-btn"><i class="fa-regular fa-heart"></i></button>
+                    <button class="icon-btn"><i class="fa-solid fa-ellipsis"></i></button>
+                </div>
+
+                <div class="song-list-container">
+                    <div class="song-list-header">
+                        <div class="col-num">#</div>
+                        <div class="col-title">Title</div>
+                        <div class="col-album desktop-only">Album</div>
+                        <div class="col-date desktop-only">Date added</div>
+                        <div class="col-duration"><i class="fa-regular fa-clock"></i></div>
+                    </div>
+                    <div class="song-list" id="song-list">
+                        <!-- Songs will be populated here via JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Bottom Player -->
+    <footer class="player-bar">
+        <div class="player-song-info">
+            <img src="assets/default_cover.png" alt="Current Song Cover" id="current-cover">
+            <div class="song-details">
+                <h4 id="current-title">Select a song</h4>
+                <p id="current-artist">Unknown Artist</p>
+            </div>
+            <button class="icon-btn like-btn"><i class="fa-regular fa-heart"></i></button>
+        </div>
+
+        <div class="player-controls">
+            <div class="control-buttons">
+                <button class="icon-btn shuffle-btn"><i class="fa-solid fa-shuffle"></i></button>
+                <button class="icon-btn prev-btn" id="prev-btn"><i class="fa-solid fa-backward-step"></i></button>
+                <button class="play-pause-btn" id="play-pause-btn"><i class="fa-solid fa-play"></i></button>
+                <button class="icon-btn next-btn" id="next-btn"><i class="fa-solid fa-forward-step"></i></button>
+                <button class="icon-btn repeat-btn"><i class="fa-solid fa-repeat"></i></button>
+            </div>
+            <div class="progress-container">
+                <span id="current-time">0:00</span>
+                <div class="progress-bar-wrapper" id="progress-wrapper">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                <span id="total-time">0:00</span>
+            </div>
+        </div>
+
+        <div class="player-volume desktop-only">
+            <i class="fa-solid fa-volume-high" id="volume-icon"></i>
+            <div class="volume-bar-wrapper" id="volume-wrapper">
+                <div class="volume-bar" id="volume-bar"></div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Hidden Audio Element -->
+    <audio id="audio-player"></audio>
+
+    <!-- Cloudinary Settings Modal -->
+    <div id="cloudinary-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cloudinary Upload Settings</h3>
+                <button id="close-modal-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-base); margin-bottom: 16px; font-size: 14px;">
+                    Get your credentials from <a href="https://cloudinary.com" target="_blank" style="color: var(--accent);">Cloudinary.com</a>
+                </p>
+                
+                <div class="form-group">
+                    <label for="cloudinary-cloud-name">Cloud Name:</label>
+                    <input type="text" id="cloudinary-cloud-name" placeholder="Your Cloudinary cloud name" class="form-input" readonly>
+                    <small style="color: var(--text-base); display: block; margin-top: 6px;">
+                        This app is currently configured for your Cloudinary cloud.
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cloudinary-upload-preset">Upload Preset:</label>
+                    <input type="text" id="cloudinary-upload-preset" placeholder="Enter your unsigned upload preset" class="form-input">
+                    <small style="color: var(--text-base); display: block; margin-top: 6px;">
+                        Create an unsigned upload preset in Cloudinary Settings -> Upload.
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cloudinary-api-key">API Key:</label>
+                    <input type="password" id="cloudinary-api-key" placeholder="Stored for display only in frontend mode" class="form-input" readonly>
+                </div>
+
+                <div style="background: var(--bg-base); border-left: 4px solid var(--accent); padding: 12px; border-radius: 4px; margin: 16px 0;">
+                    <p style="color: var(--text-base); font-size: 12px; margin: 0;">
+                        <strong>Note:</strong> This browser app uses unsigned uploads only. Do not place your Cloudinary API secret in frontend code.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button id="save-cloudinary-settings-btn" class="btn-primary">Save Settings</button>
+                <button id="cancel-modal-btn" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Progress Modal -->
+    <div id="upload-progress-modal" class="modal">
+        <div class="modal-content upload-progress-card">
+            <h3 id="upload-progress-title">Uploading to Cloudinary...</h3>
+            <div id="upload-progress-percent" class="upload-progress-percent">0%</div>
+            <div class="upload-progress-bar">
+                <div id="upload-progress-fill" class="upload-progress-fill"></div>
+            </div>
+            <p id="upload-status-text" class="upload-status-text">Uploading...</p>
+            <pre id="upload-debug-text" class="upload-debug-text"></pre>
+        </div>
+    </div>
+
+    <!-- Hidden Audio Element -->
+    <script src="script.js"></script>
+</body>
+</html>
