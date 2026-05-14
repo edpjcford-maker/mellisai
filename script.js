@@ -106,35 +106,101 @@ let songs = [
         url: "https://res.cloudinary.com/df7mpkvzn/video/upload/v1778497965/Un_Manasula_Paattuthaan_Happy_Ilaiyaraaja_Mano_K.S._Chithra._b4bqnk.mp3"
     }
 ];
+const defaultSongs = songs.map((song) => ({ ...song }));
 
 const DEFAULT_CLOUDINARY_CLOUD_NAME = 'df7mpkvzn';
 const DEFAULT_CLOUDINARY_API_KEY = '219494249645237';
 const DEFAULT_CLOUDINARY_UPLOAD_PRESET = 'siashash';
+const CLOUDINARY_PLAYLIST_TAG = 'mellisai-audio';
 
 let currentSongIndex = 0;
 let isPlaying = false;
 let isShuffle = false;
 let repeatMode = 0; // 0: no repeat, 1: repeat all, 2: repeat one
 let isUploading = false;
+let songsStorageSignature = '';
+let isCloudinarySyncInProgress = false;
 
 // Load songs from localStorage or use defaults
 function loadSongsFromStorage() {
     const savedSongs = localStorage.getItem('mellisai_songs');
     if (savedSongs) {
         try {
-            return JSON.parse(savedSongs);
+            return mergeSongLists(defaultSongs, JSON.parse(savedSongs));
         } catch (e) {
             console.log('Error loading saved songs:', e);
-            return songs;
+            return defaultSongs.map((song) => ({ ...song }));
         }
     }
-    return songs;
+    return defaultSongs.map((song) => ({ ...song }));
+}
+
+function getSongIdentity(song = {}) {
+    return song.publicId || song.url || `${song.title}-${song.artist}`;
+}
+
+function mergeSongLists(...songLists) {
+    const merged = [];
+    const seen = new Set();
+
+    songLists.flat().forEach((song) => {
+        if (!song) return;
+
+        const identity = getSongIdentity(song);
+        if (!identity || seen.has(identity)) return;
+
+        seen.add(identity);
+        merged.push(song);
+    });
+
+    return merged;
+}
+
+function getSongsStorageSignature(songList = songs) {
+    try {
+        return JSON.stringify(songList);
+    } catch (e) {
+        console.log('Error creating songs signature:', e);
+        return '';
+    }
+}
+
+function getCloudinaryListUrl() {
+    return `https://res.cloudinary.com/${DEFAULT_CLOUDINARY_CLOUD_NAME}/video/list/${CLOUDINARY_PLAYLIST_TAG}.json`;
+}
+
+function formatCloudinaryDate(dateValue) {
+    if (!dateValue) {
+        return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) {
+        return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function mapCloudinaryResourceToSong(resource) {
+    const fallbackTitle = resource.display_name || resource.original_filename || resource.public_id || 'Uploaded Song';
+
+    return {
+        title: fallbackTitle,
+        artist: 'Cloudinary Upload',
+        album: 'Your Uploads',
+        dateAdded: formatCloudinaryDate(resource.created_at),
+        url: resource.secure_url || resource.url,
+        publicId: resource.public_id || '',
+        bytes: resource.bytes || 0
+    };
 }
 
 // Save songs to localStorage
 function saveSongsToStorage() {
     try {
         localStorage.setItem('mellisai_songs', JSON.stringify(songs));
+        songsStorageSignature = getSongsStorageSignature(songs);
         console.log('Songs saved to storage');
     } catch (e) {
         console.log('Error saving songs:', e);
@@ -143,6 +209,7 @@ function saveSongsToStorage() {
 
 // Load saved songs if available
 songs = loadSongsFromStorage();
+songsStorageSignature = getSongsStorageSignature(songs);
 
 // Cloudinary Settings
 let cloudinarySettings = {
@@ -515,6 +582,79 @@ function addUploadedSongToPlaylist(song) {
     loadSong(currentSongIndex);
 }
 
+function syncSongsFromStorage() {
+    const savedSongs = loadSongsFromStorage();
+    const nextSignature = getSongsStorageSignature(savedSongs);
+
+    if (!nextSignature || nextSignature === songsStorageSignature) {
+        return;
+    }
+
+    const currentSongUrl = songs[currentSongIndex]?.url;
+    songs = savedSongs;
+    songsStorageSignature = nextSignature;
+
+    const updatedCurrentIndex = currentSongUrl
+        ? songs.findIndex((song) => song.url === currentSongUrl)
+        : -1;
+
+    currentSongIndex = updatedCurrentIndex >= 0 ? updatedCurrentIndex : 0;
+
+    renderPlaylist();
+
+    if (songs.length > 0) {
+        loadSong(currentSongIndex);
+    }
+}
+
+async function syncSongsFromCloudinary(force = false) {
+    if (isCloudinarySyncInProgress) {
+        return;
+    }
+
+    if (!force && !navigator.onLine) {
+        return;
+    }
+
+    isCloudinarySyncInProgress = true;
+
+    try {
+        const response = await fetch(getCloudinaryListUrl(), {
+            cache: force ? 'no-store' : 'default'
+        });
+
+        if (!response.ok) {
+            console.log('Cloudinary list fetch skipped:', response.status);
+            return;
+        }
+
+        const data = await response.json();
+        const cloudinarySongs = Array.isArray(data.resources)
+            ? data.resources.map(mapCloudinaryResourceToSong).filter((song) => song.url)
+            : [];
+
+        const currentSongUrl = songs[currentSongIndex]?.url;
+        songs = mergeSongLists(cloudinarySongs, loadSongsFromStorage());
+        songsStorageSignature = getSongsStorageSignature(songs);
+        localStorage.setItem('mellisai_songs', JSON.stringify(songs));
+
+        const updatedCurrentIndex = currentSongUrl
+            ? songs.findIndex((song) => song.url === currentSongUrl)
+            : -1;
+
+        currentSongIndex = updatedCurrentIndex >= 0 ? updatedCurrentIndex : 0;
+        renderPlaylist();
+
+        if (songs.length > 0) {
+            loadSong(currentSongIndex);
+        }
+    } catch (error) {
+        console.log('Cloudinary sync error:', error);
+    } finally {
+        isCloudinarySyncInProgress = false;
+    }
+}
+
 // Cloudinary Settings Event Listeners
 cloudinarySettingsBtn.addEventListener('click', openCloudinaryModal);
 closeModalBtn.addEventListener('click', closeCloudinaryModal);
@@ -632,6 +772,7 @@ async function uploadToCloudinary(file) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', cloudinarySettings.uploadPreset);
+    formData.append('tags', CLOUDINARY_PLAYLIST_TAG);
     
     try {
         console.log('Showing upload progress modal');
@@ -753,6 +894,7 @@ uploadInput.addEventListener('change', async function(e) {
     if (uploadResult?.secure_url) {
         const newSong = createSongFromUpload(file, uploadResult.secure_url, uploadResult);
         addUploadedSongToPlaylist(newSong);
+        syncSongsFromCloudinary(true);
         playSong();
         showNotification(`"${newSong.title}" uploaded and loaded into the playlist.`, 'success');
     }
@@ -778,7 +920,26 @@ document.addEventListener('drop', (e) => {
     }
 });
 
+window.addEventListener('storage', (event) => {
+    if (event.key === 'mellisai_songs') {
+        syncSongsFromStorage();
+    }
+});
+
+window.addEventListener('focus', syncSongsFromStorage);
+window.addEventListener('focus', () => {
+    syncSongsFromCloudinary();
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        syncSongsFromStorage();
+        syncSongsFromCloudinary();
+    }
+});
+
 // Initialize
 renderPlaylist();
 loadSong(currentSongIndex);
 updateVolumeIcon();
+syncSongsFromCloudinary();
